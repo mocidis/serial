@@ -1,24 +1,25 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <termios.h>
-//#include <pjlib.h>
 #include <unistd.h>
-#include "my-pjlib-utils.h"
+#include <pthread.h>
+
+#include "ansi-utils.h"
 
 void (*on_serial_data_received)(char *buffer, int nbytes);
 void (*process_command)(int fd);
 
 volatile int fQuit;
 
-pj_status_t open_serial(char* portdev, int *p_fd) {
+int open_serial(char* portdev, int *p_fd) {
     //*p_fd = open(portdev, O_RDWR | O_NOCTTY | O_NONBLOCK);
     *p_fd = open(portdev, O_RDWR | O_NOCTTY);
     if( (*p_fd) < 0 ) {
-        PJ_LOG(3, (__FILE__, "Cannot open port: %s", strerror(errno)));
-        return PJ_SUCCESS - 100;
+        printf( "Cannot open port: %s", strerror(errno));
+        return 0 - 100;
     }
     fcntl(*p_fd, F_SETFL, 0);
-    return PJ_SUCCESS;
+    return 0;
 }
 
 void config_serial(struct termios *options, int fd) {
@@ -52,41 +53,34 @@ static void serial_read_and_parse(int fd) {
     }
 }
 
-static int do_thing(void *data) {
+static void *do_thing(void *data) {
     //char *portdev = "/dev/cu.usbserial";
     //char *portdev = "/dev/ttyO1";
     
     int serial_fd;
 
-    pj_thread_desc desc;
-    pj_thread_t **thread;
-
     char *port_dev = (char *)data;
     struct termios options;
+
     CHECK(__FILE__, open_serial(port_dev, &serial_fd));
     config_serial(&options, serial_fd);
-
-    // CHECK(__FILE__, pj_init());
-
-    // pj_thread_register("riuc_thread", desc, thread);
 
     while(!fQuit) {
         serial_read_and_parse(serial_fd);
         process_command(serial_fd);
-        //pj_thread_sleep(100);
     }
 
     close(serial_fd);
     return 0;
 }
 
-void serial_start(pj_pool_t *pool, char *port_dev, pj_thread_t **thread) {
+void serial_start(char *port_dev, pthread_t *thread) {
     fQuit = 0;
-    pj_thread_create(pool, "serial_thread", do_thing, port_dev, PJ_THREAD_DEFAULT_STACK_SIZE, 0, thread);
+    CHECK(__FILE__, pthread_create(thread, NULL, do_thing, port_dev));
 }
 
-void serial_end(pj_thread_t *thread) {
+void serial_end(pthread_t *thread) {
     fQuit = 1;
-    pj_thread_join(thread);
+    pthread_join(*thread, NULL);
 }
 

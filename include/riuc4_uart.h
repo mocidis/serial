@@ -1,13 +1,13 @@
 #ifndef __RIUC4_UART_H__
 #define __RIUC4_UART_H__
-#include <pjlib.h>
+#include <pthread.h>
 extern void (*on_riuc4_status)(void *data);
 extern void (*on_riuc4_error)(int error_code);
 
 // DEFAULT ACTIONS : INIT, START, END
 void riuc4_init(void (*cb)(void *));
-void riuc4_start(pj_pool_t *pool, char *port_dev, pj_thread_t **thread);
-void riuc4_end(pj_thread_t *thread);
+void riuc4_start(char *port_dev, pthread_t *thread);
+void riuc4_end(pthread_t *thread);
 
 // RIUC COMMAND PROCESSING LOGIC
 void riuc4_process_command(int fd);

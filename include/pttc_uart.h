@@ -1,7 +1,7 @@
 #ifndef __PTT_UART_H__
 #define __PTT_UART_H__
-#include <pjlib.h>
+#include <pthread.h>
 void pttc_init( void (*cb)(int) );
-void pttc_start( pj_pool_t *pool, char *port_dev, pj_thread_t **thread );
-void pttc_end( pj_thread_t *thread );
+void pttc_start( char *port_dev, pthread_t *thread );
+void pttc_end( pthread_t *thread );
 #endif
