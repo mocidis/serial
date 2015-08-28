@@ -5,11 +5,7 @@
 #include <pthread.h>
 
 #include "ansi-utils.h"
-
-void (*on_serial_data_received)(char *buffer, int nbytes);
-void (*process_command)(int fd);
-
-volatile int fQuit;
+#include "serial_utils.h"
 
 int open_serial(char* portdev, int *p_fd) {
     //*p_fd = open(portdev, O_RDWR | O_NOCTTY | O_NONBLOCK);
@@ -42,45 +38,42 @@ void config_serial(struct termios *options, int fd) {
     tcsetattr(fd, TCSANOW, options);
 }
 
-static void serial_read_and_parse(int fd) {
-    int nbytes;
-    char buffer[10];
-    memset(buffer, 0, sizeof(buffer));
-    nbytes = read(fd, buffer, sizeof(buffer));
-    if(nbytes > 0) {
-        on_serial_data_received(buffer, nbytes);
-        //on_riuc_status(&uart_status);
-    }
-}
-
 static void *do_thing(void *data) {
     //char *portdev = "/dev/cu.usbserial";
     //char *portdev = "/dev/ttyO1";
     
     int serial_fd;
 
-    char *port_dev = (char *)data;
+    serial_t *serial = (serial_t *)data;
+    char *port_dev = serial->port_dev;
     struct termios options;
+
+    int nbytes;
+    char buffer[10];
 
     CHECK(__FILE__, open_serial(port_dev, &serial_fd));
     config_serial(&options, serial_fd);
 
-    while(!fQuit) {
-        serial_read_and_parse(serial_fd);
-        process_command(serial_fd);
+    serial->fQuit = 0;
+    while(!serial->fQuit) {
+        memset(buffer, 0, sizeof(buffer));
+        nbytes = read(serial_fd, buffer, sizeof(buffer));
+        if(nbytes > 0) {
+            serial->on_serial_data_received(serial, buffer, nbytes);
+        }
+        serial->process_command(serial, serial_fd);
     }
 
     close(serial_fd);
     return 0;
 }
 
-void serial_start(char *port_dev, pthread_t *thread) {
-    fQuit = 0;
-    CHECK(__FILE__, pthread_create(thread, NULL, do_thing, port_dev));
+void serial_start(serial_t *serial) {
+    CHECK(__FILE__, pthread_create(&serial->thread, NULL, do_thing, serial));
 }
 
-void serial_end(pthread_t *thread) {
-    fQuit = 1;
-    pthread_join(*thread, NULL);
+void serial_end(serial_t *serial) {
+    serial->fQuit = 1;
+    pthread_join(serial->thread, NULL);
 }
 
