@@ -33,7 +33,7 @@ void config_serial(struct termios *options, int fd) {
 
     options->c_lflag &= ~(ICANON | ECHO); // RAW mode
     options->c_cc[VMIN] = 0;
-    options->c_cc[VTIME] = 5; // measured in 0.1 second
+    options->c_cc[VTIME] = 2; // measured in 0.1 second
 
     tcsetattr(fd, TCSANOW, options);
 }
@@ -56,9 +56,9 @@ static void *do_thing(void *data) {
 
     serial->fQuit = 0;
     while(!serial->fQuit) {
-        memset(buffer, 0, sizeof(buffer));
         nbytes = read(serial_fd, buffer, sizeof(buffer));
         if(nbytes > 0) {
+            buffer[nbytes] = '\0';
             serial->on_serial_data_received(serial, buffer, nbytes);
         }
         serial->process_command(serial, serial_fd);

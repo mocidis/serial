@@ -34,12 +34,15 @@ static int pttc_prober_should_probe(pttc_t *pttc) {
     pttc->prober.idle_cnt = (pttc->prober.idle_cnt+1) % PTTC_MAX_IDLE_CNT;
     return (pttc->prober.idle_cnt == 0);
 }
+
 static void pttc_prober_reset_probe_count(pttc_t *pttc) {
     pttc->prober.probe_cnt = 0;
 }
+
 static void pttc_prober_inc_probe_count(pttc_t *pttc) {
     pttc->prober.probe_cnt++;
 }
+
 static int pttc_prober_is_negative_result(pttc_t *pttc) {
     return (pttc->prober.probe_cnt > PTTC_MAX_PROBE_CNT);
 }
@@ -47,12 +50,12 @@ static int pttc_prober_is_negative_result(pttc_t *pttc) {
 static void pttc_fdtor_reset(pttc_t *pttc) {
     pttc->fdtor.state = 0;
 }
+
 static int pttc_fdtor_is_flipped(pttc_t *pttc, int new_state) {
     int ret = (new_state != pttc->fdtor.state);
     pttc->fdtor.state = new_state;
     return ret;
 }
-
 
 static void on_pttc_ptt_default(int ptt) {
     fprintf(stdout, "PTT is %d\n", ptt);

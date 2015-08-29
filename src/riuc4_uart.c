@@ -4,180 +4,160 @@
 //#include <termios.h>
 #include "ansi-utils.h"
 #include "serial_utils.h"
-
-#define N_RIUC 4
-#define RIUC_SIGNAL_PTT 1
-#define RIUC_SIGNAL_SQ 2
-#define RIUC_SIGNAL_ERROR 3
-#define RIUC_SIGNAL_TX 4
-#define RIUC_SIGNAL_RX 5
-
-typedef struct _uart4_status_t {
-    int ptt;
-    int sq;
-    int tx;
-    int rx;
-} uart4_status_t;
-
-uart4_status_t riuc4_status[N_RIUC];
+#include "riuc4_uart.h"
 
 int riuc4_error;
 
-void (*on_riuc_status)(void *data);
-
-struct {
-    int signal; // 1=ptt(L) or 2=sq(Q) or 3=error(E) or 4=tx(T) or 5=rx(R). See define RIUC_SIGNAL_...
-    int f_parsing_port; // parsing port or parsing value (1: parsing port)
-    int f_complete; // complete or not
-    int f_on; // on or off
-    int port; // the port that output is saying about
-} parser4;
-
-void on_riuc4_status_default(void *data) {
-    uart4_status_t *ustatus = (uart4_status_t *)data;
-    fprintf(stdout, "RIUC4 - tx:%d - rx:%d - ptt:%d - sq:%d\n", ustatus->tx, ustatus->rx, ustatus->ptt, ustatus->sq);
+char *RIUC4_SIGNAL_NAME[] = {
+    "PTT", "SQ", "ERROR", "TX", "RX"
+};
+static void on_riuc4_status_default(int port, riuc4_signal_t signal, uart4_status_t *ustatus) {
+    fprintf(stdout, "RIUC4 (port %d, signal %s) - tx:%d - rx:%d - ptt:%d - sq:%d\n", port, RIUC4_SIGNAL_NAME[signal], ustatus->tx, ustatus->rx, ustatus->ptt, ustatus->sq);
 }
 
-void on_riuc4_error_default(int error_code) {
+static void on_riuc4_error_default(int error_code) {
     fprintf(stdout, "RIUC4 - Error:%d\n", error_code);
 }
 
-void parser4_set_parsing_port() {
-    parser4.f_parsing_port = 1;
+static void parser4_set_parsing_port(riuc4_t *riuc4) {
+    riuc4->parser4.f_parsing_port = 1;
 }
-void parser4_clear_parsing_port() {
-    parser4.f_parsing_port = 0;
+static void parser4_clear_parsing_port(riuc4_t *riuc4) {
+    riuc4->parser4.f_parsing_port = 0;
 }
-int parser4_is_parsing_port() {
-    return parser4.f_parsing_port > 0;
-}
-
-void parser4_set_tx() {
-    parser4.signal = RIUC_SIGNAL_TX;
-}
-void parser4_set_rx() {
-    parser4.signal = RIUC_SIGNAL_RX;
-}
-void parser4_set_error() {
-    parser4.signal = RIUC_SIGNAL_ERROR;
-}
-void parser4_set_ptt() {
-    parser4.signal = RIUC_SIGNAL_PTT;
-}
-void parser4_set_sq() {
-    parser4.signal = RIUC_SIGNAL_SQ;
-}
-int parser4_is_tx() {
-    return parser4.signal == RIUC_SIGNAL_TX;
-}
-int parser4_is_rx() {
-    return parser4.signal == RIUC_SIGNAL_RX;
-}
-int parser4_is_error() {
-    return parser4.signal == RIUC_SIGNAL_ERROR;
-}
-int parser4_is_ptt() {
-    return parser4.signal == RIUC_SIGNAL_PTT;
-}
-int parser4_is_sq() {
-    return parser4.signal == RIUC_SIGNAL_SQ;
-}
-void parser4_set_on() {
-    parser4.f_on = 1;
-}
-void parser4_set_off() {
-    parser4.f_on = 0;
-}
-int parser4_is_on() {
-    return parser4.f_on > 0;
-}
-void parser4_set_complete() {
-    parser4.f_complete = 1;
-}
-void parser4_set_incomplete() {
-    parser4.f_complete = 0;
-}
-int parser4_is_complete() {
-    return parser4.f_complete == 1;
-}
-void parser4_set_port(char port) {
-    parser4.port = port - '1';
-}
-int parser4_get_port() {
-    return parser4.port;
+static int parser4_is_parsing_port(riuc4_t *riuc4) {
+    return riuc4->parser4.f_parsing_port > 0;
 }
 
-void on_riuc4_data_received(char *buffer, int nbytes) {
+static void parser4_set_tx(riuc4_t *riuc4) {
+    riuc4->parser4.signal = RIUC_SIGNAL_TX;
+}
+static void parser4_set_rx(riuc4_t *riuc4) {
+    riuc4->parser4.signal = RIUC_SIGNAL_RX;
+}
+static void parser4_set_error(riuc4_t *riuc4) {
+    riuc4->parser4.signal = RIUC_SIGNAL_ERROR;
+}
+static void parser4_set_ptt(riuc4_t *riuc4) {
+    riuc4->parser4.signal = RIUC_SIGNAL_PTT;
+}
+static void parser4_set_sq(riuc4_t *riuc4) {
+    riuc4->parser4.signal = RIUC_SIGNAL_SQ;
+}
+static int parser4_is_tx(riuc4_t *riuc4) {
+    return riuc4->parser4.signal == RIUC_SIGNAL_TX;
+}
+static int parser4_is_rx(riuc4_t *riuc4) {
+    return riuc4->parser4.signal == RIUC_SIGNAL_RX;
+}
+static int parser4_is_error(riuc4_t *riuc4) {
+    return riuc4->parser4.signal == RIUC_SIGNAL_ERROR;
+}
+static int parser4_is_ptt(riuc4_t *riuc4) {
+    return riuc4->parser4.signal == RIUC_SIGNAL_PTT;
+}
+static int parser4_is_sq(riuc4_t *riuc4) {
+    return riuc4->parser4.signal == RIUC_SIGNAL_SQ;
+}
+static void parser4_set_on(riuc4_t *riuc4) {
+    riuc4->parser4.f_on = 1;
+}
+static void parser4_set_off(riuc4_t *riuc4) {
+    riuc4->parser4.f_on = 0;
+}
+static int parser4_is_on(riuc4_t *riuc4) {
+    return riuc4->parser4.f_on > 0;
+}
+static void parser4_set_complete(riuc4_t *riuc4) {
+    riuc4->parser4.f_complete = 1;
+}
+static void parser4_set_incomplete(riuc4_t *riuc4) {
+    riuc4->parser4.f_complete = 0;
+}
+static int parser4_is_complete(riuc4_t *riuc4) {
+    return riuc4->parser4.f_complete == 1;
+}
+static void parser4_set_port(riuc4_t *riuc4, char port) {
+    riuc4->parser4.port = port - '1';
+}
+static int parser4_get_port(riuc4_t *riuc4) {
+    return riuc4->parser4.port;
+}
+
+static void on_riuc4_data_received(serial_t *serial, char *buffer, int nbytes) {
     int i;
+    int port;
+    int param;
+    riuc4_t *riuc4 = (riuc4_t *)serial->user_data;
     for( i = 0; i < nbytes; i++ ) {
         switch (buffer[i]) {
         case 'L':
-            parser4_set_ptt();
-            parser4_set_parsing_port();
-            parser4_set_incomplete();
+            parser4_set_ptt(riuc4);
+            parser4_set_parsing_port(riuc4);
+            parser4_set_incomplete(riuc4);
             break;
         case 'Q':
-            parser4_set_sq();
-            parser4_set_parsing_port();
-            parser4_set_incomplete();
+            parser4_set_sq(riuc4);
+            parser4_set_parsing_port(riuc4);
+            parser4_set_incomplete(riuc4);
             break;
         case 'T':
-            parser4_set_tx();
-            parser4_set_parsing_port();
-            parser4_set_incomplete();
+            parser4_set_tx(riuc4);
+            parser4_set_parsing_port(riuc4);
+            parser4_set_incomplete(riuc4);
             break;
         case 'R':
-            parser4_set_rx();
-            parser4_set_parsing_port();
-            parser4_set_incomplete();
+            parser4_set_rx(riuc4);
+            parser4_set_parsing_port(riuc4);
+            parser4_set_incomplete(riuc4);
             break;
         case 'E':
-            parser4_set_error();
-            parser4_clear_parsing_port();
-            parser4_set_incomplete();
+            parser4_set_error(riuc4);
+            parser4_clear_parsing_port(riuc4);
+            parser4_set_incomplete(riuc4);
             break;
         case '0':
-            if (parser4_is_parsing_port()) {
-                parser4_clear_parsing_port();
+            if (parser4_is_parsing_port(riuc4)) {
+                parser4_clear_parsing_port(riuc4);
                 fprintf(stdout, "RIUC4 - invalid parsed input: (%s) (%c) (%d)\n", buffer, buffer[i], buffer[i]);
             }
             else {
-                parser4_set_complete();
-                parser4_set_off();
+                parser4_set_complete(riuc4);
+                parser4_set_off(riuc4);
             }
             break;
         case '1':
-            if (parser4_is_parsing_port()) {
-                parser4_clear_parsing_port();
-                parser4_set_port(buffer[i]);
+            if (parser4_is_parsing_port(riuc4)) {
+                parser4_clear_parsing_port(riuc4);
+                parser4_set_port(riuc4, buffer[i]);
             }
             else {
-                parser4_set_complete();
-                parser4_set_on();
+                parser4_set_complete(riuc4);
+                parser4_set_on(riuc4);
             }
             break;
         case '2':
         case '3':
         case '4':
-            if (parser4_is_parsing_port()) {
-                parser4_clear_parsing_port();
-                parser4_set_port(buffer[i]);
+            if (parser4_is_parsing_port(riuc4)) {
+                parser4_clear_parsing_port(riuc4);
+                parser4_set_port(riuc4, buffer[i]);
             }
-            else if(parser4_is_error()) {
+            else if(parser4_is_error(riuc4)) {
                 riuc4_error = buffer[i] - '0';
-                parser4_set_complete();
+                parser4_set_complete(riuc4);
             }
             else {
                 fprintf(stdout, "RIUC4 - invalid parsed input: (%s) (%c) (%d)\n", buffer, buffer[i], buffer[i]);
             }
             break;
         default:
-            if (parser4_is_parsing_port()) {
-                parser4_clear_parsing_port();
+            if (parser4_is_parsing_port(riuc4)) {
+                parser4_clear_parsing_port(riuc4);
             }
-            else if (parser4_is_error()) {
+            else if (parser4_is_error(riuc4)) {
                 riuc4_error = buffer[i] - '0';
-                parser4_set_complete();
+                parser4_set_complete(riuc4);
             }
             else {
                 fprintf(stdout, "RIUC4 - invalid parsed input: (%s) (%c) (%d)\n", buffer, buffer[i], buffer[i]);
@@ -185,24 +165,26 @@ void on_riuc4_data_received(char *buffer, int nbytes) {
             break;
         }
 
-        if( parser4_is_complete() ) {
-            if (parser4_is_error()) {
+        if( parser4_is_complete(riuc4) ) {
+            if (parser4_is_error(riuc4)) {
                 on_riuc4_error_default(riuc4_error);
             }
             else {
-                if( parser4_is_ptt() ) {
-                    riuc4_status[parser4_get_port()].ptt = parser4_is_on();
+                port = parser4_get_port(riuc4);
+                
+                if( parser4_is_ptt(riuc4) ) {
+                    riuc4->riuc4_status[port].ptt = parser4_is_on(riuc4);
                 }
-                else if (parser4_is_sq()) {
-                    riuc4_status[parser4_get_port()].sq = parser4_is_on();
+                else if (parser4_is_sq(riuc4)) {
+                    riuc4->riuc4_status[port].sq = parser4_is_on(riuc4);
                 }
-                else if (parser4_is_tx()) {
-                    riuc4_status[parser4_get_port()].tx = parser4_is_on();
+                else if (parser4_is_tx(riuc4)) {
+                    riuc4->riuc4_status[port].tx = parser4_is_on(riuc4);
                 }
-                else if (parser4_is_rx()) {
-                    riuc4_status[parser4_get_port()].rx = parser4_is_on();
+                else if (parser4_is_rx(riuc4)) {
+                    riuc4->riuc4_status[port].rx = parser4_is_on(riuc4);
                 }
-                on_riuc_status(&(riuc4_status[parser4_get_port()]));
+                riuc4->on_riuc4_status(port, riuc4->parser4.signal, &(riuc4->riuc4_status[port]));
             }
         }
     }
@@ -237,101 +219,98 @@ typedef struct _uart4_command_t {
 #define CMD_DIS_RX  (0x1 << 7)
 #define CMD_ON_PTT  (0x1 << 8)
 #define CMD_OFF_PTT (0x1 << 9)
-struct {
-    int command[4];
-} uart4_command;
 
-void set_check_ptt(int port_idx) {
-    uart4_command.command[port_idx] |= CMD_FLED;
+static void set_check_ptt(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] |= CMD_FLED;
 }
-void set_check_sq(int port_idx) {
-    uart4_command.command[port_idx] |= CMD_FSQ;
+static void set_check_sq(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] |= CMD_FSQ;
 }
-void set_check_tx(int port_idx) {
-    uart4_command.command[port_idx] |= CMD_FTX;
+static void set_check_tx(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] |= CMD_FTX;
 }
-void set_check_rx(int port_idx) {
-    uart4_command.command[port_idx] |= CMD_FRX;
+static void set_check_rx(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] |= CMD_FRX;
 }
-void set_enable_tx(int port_idx) {
-    uart4_command.command[port_idx] |= CMD_ENT_TX;
+static void set_enable_tx(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] |= CMD_ENT_TX;
 }
-void set_disable_tx(int port_idx) {
-    uart4_command.command[port_idx] |= CMD_DIS_TX;
+static void set_disable_tx(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] |= CMD_DIS_TX;
 }
-void set_enable_rx(int port_idx) {
-    uart4_command.command[port_idx] |= CMD_ENT_RX;
+static void set_enable_rx(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] |= CMD_ENT_RX;
 }
-void set_disable_rx(int port_idx) {
-    uart4_command.command[port_idx] |= CMD_DIS_RX;
+static void set_disable_rx(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] |= CMD_DIS_RX;
 }
-void set_on_ptt(int port_idx) {
-    uart4_command.command[port_idx] |= CMD_ON_PTT;
+static void set_on_ptt(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] |= CMD_ON_PTT;
 }
-void set_off_ptt(int port_idx) {
-    uart4_command.command[port_idx] |= CMD_OFF_PTT;
+static void set_off_ptt(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] |= CMD_OFF_PTT;
 }
 
-void reset_check_ptt(int port_idx) {
-    uart4_command.command[port_idx] &= ~CMD_FLED;
+static void reset_check_ptt(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] &= ~CMD_FLED;
 }
-void reset_check_sq(int port_idx) {
-    uart4_command.command[port_idx] &= ~CMD_FSQ;
+static void reset_check_sq(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] &= ~CMD_FSQ;
 }
-void reset_check_tx(int port_idx) {
-    uart4_command.command[port_idx] &= ~CMD_FTX;
+static void reset_check_tx(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] &= ~CMD_FTX;
 }
-void reset_check_rx(int port_idx) {
-    uart4_command.command[port_idx] &= ~CMD_FRX;
+static void reset_check_rx(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] &= ~CMD_FRX;
 }
-void reset_enable_tx(int port_idx) {
-    uart4_command.command[port_idx] &= ~CMD_ENT_TX;
+static void reset_enable_tx(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] &= ~CMD_ENT_TX;
 }
-void reset_disable_tx(int port_idx) {
-    uart4_command.command[port_idx] &= ~CMD_DIS_TX;
+static void reset_disable_tx(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] &= ~CMD_DIS_TX;
 }
-void reset_enable_rx(int port_idx) {
-    uart4_command.command[port_idx] &= ~CMD_ENT_RX;
+void reset_enable_rx(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] &= ~CMD_ENT_RX;
 }
-void reset_disable_rx(int port_idx) {
-    uart4_command.command[port_idx] &= ~CMD_DIS_RX;
+void reset_disable_rx(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] &= ~CMD_DIS_RX;
 }
-void reset_on_ptt(int port_idx) {
-    uart4_command.command[port_idx] &= ~CMD_ON_PTT;
+void reset_on_ptt(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] &= ~CMD_ON_PTT;
 }
-void reset_off_ptt(int port_idx) {
-    uart4_command.command[port_idx] &= ~CMD_OFF_PTT;
+void reset_off_ptt(riuc4_t *riuc4, int port_idx) {
+    riuc4->uart4_command.command[port_idx] &= ~CMD_OFF_PTT;
 }
 
-int is_check_ptt(int port_idx) {
-    return uart4_command.command[port_idx] & CMD_FLED;
+int is_check_ptt(riuc4_t *riuc4, int port_idx) {
+    return riuc4->uart4_command.command[port_idx] & CMD_FLED;
 }
-int is_check_sq(int port_idx) {
-    return uart4_command.command[port_idx] & CMD_FSQ;
+int is_check_sq(riuc4_t *riuc4, int port_idx) {
+    return riuc4->uart4_command.command[port_idx] & CMD_FSQ;
 }
-int is_check_tx(int port_idx) {
-    return uart4_command.command[port_idx] & CMD_FTX;
+int is_check_tx(riuc4_t *riuc4, int port_idx) {
+    return riuc4->uart4_command.command[port_idx] & CMD_FTX;
 }
-int is_check_rx(int port_idx) {
-    return uart4_command.command[port_idx] & CMD_FRX;
+int is_check_rx(riuc4_t *riuc4, int port_idx) {
+    return riuc4->uart4_command.command[port_idx] & CMD_FRX;
 }
-int is_enable_tx(int port_idx) {
-    return uart4_command.command[port_idx] & CMD_ENT_TX;
+int is_enable_tx(riuc4_t *riuc4, int port_idx) {
+    return riuc4->uart4_command.command[port_idx] & CMD_ENT_TX;
 }
-int is_disable_tx(int port_idx) {
-    return uart4_command.command[port_idx] & CMD_DIS_TX;
+int is_disable_tx(riuc4_t *riuc4, int port_idx) {
+    return riuc4->uart4_command.command[port_idx] & CMD_DIS_TX;
 }
-int is_enable_rx(int port_idx) {
-    return uart4_command.command[port_idx] & CMD_ENT_RX;
+int is_enable_rx(riuc4_t *riuc4, int port_idx) {
+    return riuc4->uart4_command.command[port_idx] & CMD_ENT_RX;
 }
-int is_disable_rx(int port_idx) {
-    return uart4_command.command[port_idx] & CMD_DIS_RX;
+int is_disable_rx(riuc4_t *riuc4, int port_idx) {
+    return riuc4->uart4_command.command[port_idx] & CMD_DIS_RX;
 }
-int is_on_ptt(int port_idx) {
-    return uart4_command.command[port_idx] & CMD_ON_PTT;
+int is_on_ptt(riuc4_t *riuc4, int port_idx) {
+    return riuc4->uart4_command.command[port_idx] & CMD_ON_PTT;
 }
-int is_off_ptt(int port_idx) {
-    return uart4_command.command[port_idx] & CMD_OFF_PTT;
+int is_off_ptt(riuc4_t *riuc4, int port_idx) {
+    return riuc4->uart4_command.command[port_idx] & CMD_OFF_PTT;
 }
 
 void do_check_ptt(int port_idx, int fd) {
@@ -385,101 +364,106 @@ void do_off_ptt(int port_idx, int fd) {
     write(fd, data, 8);
 }
 
-void riuc4_process_command(int fd) {
+void riuc4_process_command(serial_t *serial, int fd) {
     int i;
+    riuc4_t *riuc4 = (riuc4_t *)serial->user_data;
     for( i = 0; i < N_RIUC; i++ ) {
-        if (is_check_ptt(i)) {
-            reset_check_ptt(i);
+        if (is_check_ptt(riuc4, i)) {
+            reset_check_ptt(riuc4, i);
             do_check_ptt(i, fd);
         }
-        if (is_check_sq(i)) {
-            reset_check_sq(i);
+        if (is_check_sq(riuc4, i)) {
+            reset_check_sq(riuc4, i);
             do_check_sq(i, fd);
         }
-        if (is_check_tx(i)) {
-            reset_check_tx(i);
+        if (is_check_tx(riuc4, i)) {
+            reset_check_tx(riuc4, i);
             do_check_tx(i, fd);
         }
-        if (is_check_rx(i)) {
-            reset_check_rx(i);
+        if (is_check_rx(riuc4, i)) {
+            reset_check_rx(riuc4, i);
             do_check_rx(i, fd);
         }
-        if (is_enable_tx(i)) {
-            reset_enable_tx(i);
+        if (is_enable_tx(riuc4, i)) {
+            reset_enable_tx(riuc4, i);
             do_enable_tx(i, fd);
         }
-        if (is_disable_tx(i)) {
-            reset_disable_tx(i);
+        if (is_disable_tx(riuc4, i)) {
+            reset_disable_tx(riuc4, i);
             do_disable_tx(i, fd);
         }
-        if (is_enable_rx(i)) {
-            reset_enable_rx(i);
+        if (is_enable_rx(riuc4, i)) {
+            reset_enable_rx(riuc4, i);
             do_enable_rx(i, fd);
         }
-        if (is_disable_rx(i)) {
-            reset_disable_rx(i);
+        if (is_disable_rx(riuc4, i)) {
+            reset_disable_rx(riuc4, i);
             do_disable_rx(i, fd);
         }
-        if (is_on_ptt(i)) {
-            reset_on_ptt(i);
+        if (is_on_ptt(riuc4, i)) {
+            reset_on_ptt(riuc4, i);
             do_on_ptt(i, fd);
         }
-        if (is_off_ptt(i)) {
-            reset_off_ptt(i);
+        if (is_off_ptt(riuc4, i)) {
+            reset_off_ptt(riuc4, i);
             do_off_ptt(i, fd);
         }
     }
 }
 
-void riuc4_init(void (*cb)(void *)) {
-    on_serial_data_received = on_riuc4_data_received;
-    process_command = riuc4_process_command;
+void riuc4_init(serial_t *serial, riuc4_t *riuc4, void (*cb)(int port, riuc4_signal_t signal, uart4_status_t *ustatus)) {
+    serial->on_serial_data_received = on_riuc4_data_received;
+    serial->process_command = riuc4_process_command;
     //on_riuc_error = on_riuc4_error_default;
     if( cb == NULL ) 
-        on_riuc_status = on_riuc4_status_default;
+        riuc4->on_riuc4_status = on_riuc4_status_default;
     else 
-        on_riuc_status = cb;
+        riuc4->on_riuc4_status = cb;
+
+    serial->user_data = riuc4;
 }
 
-void riuc4_start(char *port_dev, pthread_t *thread) {
-    uart4_command.command[0] = 0;
-    uart4_command.command[1] = 0;
-    uart4_command.command[2] = 0;
-    uart4_command.command[3] = 0;
-    serial_start(port_dev, thread);
+void riuc4_start(serial_t *serial, char *port_dev) {
+    riuc4_t *riuc4 = (riuc4_t *)serial->user_data;
+    riuc4->uart4_command.command[0] = 0;
+    riuc4->uart4_command.command[1] = 0;
+    riuc4->uart4_command.command[2] = 0;
+    riuc4->uart4_command.command[3] = 0;
+    strncpy(serial->port_dev, port_dev, sizeof(serial->port_dev));
+    serial_start(serial);
 }
 
-void riuc4_end(pthread_t *thread) {
-    serial_end(thread);
+void riuc4_end(serial_t *serial) {
+    serial_end(serial);
 }
 
-void riuc4_probe_sq(int port_idx) {
-    set_check_sq(port_idx);
+void riuc4_probe_sq(riuc4_t *riuc4, int port_idx) {
+    set_check_sq(riuc4, port_idx);
 }
-void riuc4_probe_ptt(int port_idx) {
-    set_check_ptt(port_idx);
+void riuc4_probe_ptt(riuc4_t *riuc4, int port_idx) {
+    set_check_ptt(riuc4, port_idx);
 }
-void riuc4_probe_tx(int port_idx) {
-    set_check_tx(port_idx);
+void riuc4_probe_tx(riuc4_t *riuc4, int port_idx) {
+    set_check_tx(riuc4, port_idx);
 }
-void riuc4_probe_rx(int port_idx) {
-    set_check_rx(port_idx);
+void riuc4_probe_rx(riuc4_t *riuc4, int port_idx) {
+    set_check_rx(riuc4, port_idx);
 }
-void riuc4_enable_tx(int port_idx) {
-    set_enable_tx(port_idx);
+void riuc4_enable_tx(riuc4_t *riuc4, int port_idx) {
+    set_enable_tx(riuc4, port_idx);
 }
-void riuc4_disable_tx(int port_idx) {
-    set_disable_tx(port_idx);
+void riuc4_disable_tx(riuc4_t *riuc4, int port_idx) {
+    set_disable_tx(riuc4, port_idx);
 }
-void riuc4_enable_rx(int port_idx) {
-    set_enable_rx(port_idx);
+void riuc4_enable_rx(riuc4_t *riuc4, int port_idx) {
+    set_enable_rx(riuc4, port_idx);
 }
-void riuc4_disable_rx(int port_idx) {
-    set_disable_rx(port_idx);
+void riuc4_disable_rx(riuc4_t *riuc4, int port_idx) {
+    set_disable_rx(riuc4, port_idx);
 }
-void riuc4_on_ptt(int port_idx) {
-    set_on_ptt(port_idx);
+void riuc4_on_ptt(riuc4_t *riuc4, int port_idx) {
+    set_on_ptt(riuc4, port_idx);
 }
-void riuc4_off_ptt(int port_idx) {
-    set_off_ptt(port_idx);
+void riuc4_off_ptt(riuc4_t *riuc4, int port_idx) {
+    set_off_ptt(riuc4, port_idx);
 }
