@@ -22,6 +22,7 @@ typedef struct _uart4_status_t {
     int sq;
     int tx;
     int rx;
+    void *user_data;
 } uart4_status_t;
 
 typedef struct riuc4_s {
