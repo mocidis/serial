@@ -51,7 +51,7 @@ static void *do_thing(void *data) {
     int nbytes;
     char buffer[10];
 
-    CHECK(__FILE__, open_serial(port_dev, &serial_fd));
+    ANSI_CHECK(__FILE__, open_serial(port_dev, &serial_fd));
     config_serial(&options, serial_fd);
 
     serial->fQuit = 0;
@@ -69,7 +69,7 @@ static void *do_thing(void *data) {
 }
 
 void serial_start(serial_t *serial) {
-    CHECK(__FILE__, pthread_create(&serial->thread, NULL, do_thing, serial));
+    ANSI_CHECK(__FILE__, pthread_create(&serial->thread, NULL, do_thing, serial));
 }
 
 void serial_end(serial_t *serial) {

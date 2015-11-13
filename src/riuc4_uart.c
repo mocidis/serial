@@ -316,52 +316,52 @@ int is_off_ptt(riuc4_t *riuc4, int port_idx) {
 void do_check_ptt(int port_idx, int fd) {
     char data[] = "pttX\r";
     data[3] = port_idx + '1';
-    write(fd, data, 5);
+    EXIT_IF_TRUE(5 != write(fd, data, 5), "Write error\n");
 }
 void do_check_sq(int port_idx, int fd) {
     char data[] = "sqX\r";
     data[2] = port_idx + '1';
-    write(fd, data, 4);
+    EXIT_IF_TRUE(4 != write(fd, data, 4), "Write error\n");
 }
 void do_check_tx(int port_idx, int fd) {
     char data[] = "txX\r";
     data[2] = port_idx + '1';
-    write(fd, data, 4);
+    EXIT_IF_TRUE(4 != write(fd, data, 4), "Write error\n");
 }
 void do_check_rx(int port_idx, int fd) {
     char data[] = "rxX\r";
     data[2] = port_idx + '1';
-    write(fd, data, 4);
+    EXIT_IF_TRUE(4 != write(fd, data, 4), "Write error\n");
 }
 void do_enable_tx(int port_idx, int fd) {
     char data[] = "entxX\r";
     data[4] = port_idx + '1';
-    write(fd, data, 6);
+    EXIT_IF_TRUE(6 != write(fd, data, 6), "Write error\n");
 }
 void do_disable_tx(int port_idx, int fd) {
     char data[] = "distxX\r";
     data[5] = port_idx + '1';
-    write(fd, data, 7);
+    EXIT_IF_TRUE(7 != write(fd, data, 7), "Write error\n");
 }
 void do_enable_rx(int port_idx, int fd) {
     char data[] = "enrxX\r";
     data[4] = port_idx + '1';
-    write(fd, data, 6);
+    EXIT_IF_TRUE(6 != write(fd, data, 6), "Write error\n");
 }
 void do_disable_rx(int port_idx, int fd) {
     char data[] = "disrxX\r";
     data[5] = port_idx + '1';
-    write(fd, data, 7);
+    EXIT_IF_TRUE(7 != write(fd, data, 7), "Write error\n");
 }
 void do_on_ptt(int port_idx, int fd) {
     char data[] = "onpttX\r";
     data[5] = port_idx + '1';
-    write(fd, data, 7);
+    EXIT_IF_TRUE(7 != write(fd, data, 7), "Write error\n");
 }
 void do_off_ptt(int port_idx, int fd) {
     char data[] = "offpttX\r";
     data[6] = port_idx + '1';
-    write(fd, data, 8);
+    EXIT_IF_TRUE(8 != write(fd, data, 8), "Write error\n");
 }
 
 void riuc4_process_command(serial_t *serial, int fd) {
