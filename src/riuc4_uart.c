@@ -411,7 +411,7 @@ void riuc4_process_command(serial_t *serial, int fd) {
     }
 }
 
-void riuc4_init(serial_t *serial, riuc4_t *riuc4, void (*cb)(int port, riuc4_signal_t signal, uart4_status_t *ustatus)) {
+void riuc4_init(serial_t *serial, riuc4_t *riuc4, void (*cb)(int port, riuc4_signal_t signal, uart4_status_t *ustatus), pj_pool_t *pool) {
     serial->on_serial_data_received = on_riuc4_data_received;
     serial->process_command = riuc4_process_command;
     //on_riuc_error = on_riuc4_error_default;
@@ -420,6 +420,7 @@ void riuc4_init(serial_t *serial, riuc4_t *riuc4, void (*cb)(int port, riuc4_sig
     else 
         riuc4->on_riuc4_status = cb;
 
+    serial->pool = pool;    
     serial->user_data = riuc4;
 }
 

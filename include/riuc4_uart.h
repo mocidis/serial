@@ -47,7 +47,7 @@ typedef struct riuc4_s {
 } riuc4_t;
 
 // DEFAULT ACTIONS : INIT, START, END
-void riuc4_init(serial_t *serial, riuc4_t *riuc4, void (*cb)(int port, riuc4_signal_t signal, uart4_status_t *ustatus));
+void riuc4_init(serial_t *serial, riuc4_t *riuc4, void (*cb)(int port, riuc4_signal_t signal, uart4_status_t *ustatus), pj_pool_t *pool);
 void riuc4_start(serial_t *serial, char *port_dev);
 void riuc4_end(serial_t *serial);
 

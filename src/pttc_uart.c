@@ -61,7 +61,7 @@ static void on_pttc_ptt_default(int ptt) {
     fprintf(stdout, "PTT is %d\n", ptt);
 }
 
-void pttc_init( serial_t *serial, pttc_t *pttc, void (*cb)(int) ) {
+void pttc_init( serial_t *serial, pttc_t *pttc, void (*cb)(int), pj_pool_t *pool) {
     serial->on_serial_data_received = on_pttc_data_received;
     serial->process_command = pttc_process_command;
 
@@ -70,6 +70,7 @@ void pttc_init( serial_t *serial, pttc_t *pttc, void (*cb)(int) ) {
     else 
         pttc->on_pttc_ptt = on_pttc_ptt_default;
 
+    serial->pool = pool;    
     serial->user_data = pttc;
 }
 
@@ -119,10 +120,10 @@ static void pttc_process_command(serial_t *serial, int fd) {
     pttc_t *pttc = (pttc_t *)serial->user_data;
     /* periodically probe PTT Card */
     if( pttc_prober_is_negative_result(pttc) ) {
-        PANIC(__FILE__, "Disconnected from PTT Card");
+        ANSI_PANIC(__FILE__, "Disconnected from PTT Card");
     }
     else if( pttc_prober_should_probe(pttc) ) {
-        pttc_prober_inc_probe_count(pttc);
+        //pttc_prober_inc_probe_count(pttc);
         n = write(fd, "Q", 1); // do probe
     }
 }

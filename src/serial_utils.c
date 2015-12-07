@@ -38,7 +38,7 @@ void config_serial(struct termios *options, int fd) {
     tcsetattr(fd, TCSANOW, options);
 }
 
-static void *do_thing(void *data) {
+int do_thing(void *data) {
     //char *portdev = "/dev/cu.usbserial";
     //char *portdev = "/dev/ttyO1";
     
@@ -69,11 +69,11 @@ static void *do_thing(void *data) {
 }
 
 void serial_start(serial_t *serial) {
-    ANSI_CHECK(__FILE__, pthread_create(&serial->thread, NULL, do_thing, serial));
+    pj_thread_create(serial->pool, NULL, do_thing, serial, PJ_THREAD_DEFAULT_STACK_SIZE, 0, &serial->master_thread);
 }
 
 void serial_end(serial_t *serial) {
     serial->fQuit = 1;
-    pthread_join(serial->thread, NULL);
+    pj_thread_join(serial->master_thread);
 }
 
